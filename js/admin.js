@@ -36,7 +36,7 @@ function showDashboard() {
   document.getElementById('loginView').classList.add('hidden');
   document.getElementById('dashboardView').classList.remove('hidden');
   renderDashboard();
-
+}
 
 function renderDashboard() {
   const stats = getStats();
