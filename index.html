@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Peta Sampah UNTAD - Kelompok 6</title>
+  <meta name="description" content="Aplikasi web interaktif untuk memetakan, mencari, dan mengelola informasi tempat sampah di area Universitas Tadulako (UNTAD) Palu. Dilengkapi filter kategori, pencarian terdekat, dan sistem moderasi admin.">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/png" href="assets/logo-untad.png">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand">
+    <img src="assets/logo-untad.png" alt="UNTAD">
+    <div class="brand-text">
+      <h1>Peta Sampah UNTAD</h1>
+      <small>Kelompok 6 - TI untuk Lingkungan Kampus</small>
+    </div>
+  </div>
+  <div class="header-actions">
+    <a href="admin.html" class="btn-header">🔐 Admin</a>
+  </div>
+</header>
+
+<div class="app-body">
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+  <button class="mobile-filter-btn" id="mobileFilterBtn" onclick="openSidebar()">☰ Menu & Filter</button>
+  <aside class="sidebar" id="sidebar">
+    <button class="mobile-close-btn" id="mobileCloseBtn" onclick="closeSidebar()">×</button>
+    <div class="section-title">Filter Kategori Sampah</div>
+    <div class="filter-group" id="filterGroup">
+      <label class="filter-chip" data-cat="organik">
+        <input type="checkbox" value="organik" aria-label="Filter Organik">
+        <span class="dot dot-organik"></span>
+        <span>Organik</span>
+      </label>
+      <label class="filter-chip" data-cat="anorganik">
+        <input type="checkbox" value="anorganik" aria-label="Filter Anorganik">
+        <span class="dot dot-anorganik"></span>
+        <span>Anorganik</span>
+      </label>
+      <label class="filter-chip" data-cat="b3">
+        <input type="checkbox" value="b3" aria-label="Filter B3">
+        <span class="dot dot-b3"></span>
+        <span>B3 (Bahan Berbahaya)</span>
+      </label>
+      <label class="filter-chip" data-cat="campur">
+        <input type="checkbox" value="campur" aria-label="Filter Campur">
+        <span class="dot dot-campur"></span>
+        <span>Campur</span>
+      </label>
+    </div>
+    <div class="notice notice-info" style="margin-top: 0.6rem;">
+      <small>Centang kategori untuk filter. Tidak ada centang = tampilkan semua.</small>
+    </div>
+
+    <div class="section-title">Aksi Cepat</div>
+    <button class="btn-primary" onclick="findNearest()">📍 Cari Tempat Sampah Terdekat</button>
+    <div style="height: 0.5rem;"></div>
+    <button class="btn-secondary" onclick="openAddModal()">➕ Tambah Lokasi Baru</button>
+
+    <div class="section-title">Statistik</div>
+    <div class="stats-box">
+      <div class="stat-row">
+        <span class="label">Total Bin</span>
+        <strong id="statTotal">0</strong>
+      </div>
+      <div class="stat-row">
+        <span class="label">🟢 Terurus</span>
+        <strong id="statHijau">0</strong>
+      </div>
+      <div class="stat-row">
+        <span class="label">🔴 Tidak Terurus</span>
+        <strong id="statMerah">0</strong>
+      </div>
+    </div>
+
+    <div class="section-title">Keterangan</div>
+    <div class="legend">
+      <div class="legend-item"><span class="dot dot-hijau"></span> Terurus</div>
+      <div class="legend-item"><span class="dot dot-merah"></span> Tidak Terurus</div>
+    </div>
+
+    <div class="notice notice-info" style="margin-top: 1rem;">
+      <small><strong>Info:</strong> Klik marker untuk detail. Semua submission akan diverifikasi admin terlebih dahulu.</small>
+    </div>
+  </aside>
+
+  <div class="map-container">
+    <div id="map" role="main"></div>
+  </div>
+</div>
+
+<!-- ====== MODAL: TAMBAH LOKASI ====== -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>➕ Tambah Lokasi Tempat Sampah</h2>
+      <button class="modal-close" onclick="closeAddModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="notice notice-info">
+        <strong>Pengisian anonim.</strong> Data akan tampil di peta setelah admin memverifikasi.
+      </div>
+      <form id="addForm" onsubmit="event.preventDefault(); submitAddBin();">
+        <div class="form-group">
+          <label>Nama Lokasi *</label>
+          <input type="text" id="addName" placeholder="Contoh: TPS Depan Fakultas Teknik" required>
+        </div>
+        <div class="form-group">
+          <label>Lokasi / Gedung / Lantai</label>
+          <input type="text" id="addFloor" placeholder="Contoh: Lantai 2, Gedung A">
+        </div>
+        <div class="form-group">
+          <label>Jenis Sampah yang Diterima * (pilih minimal 1)</label>
+          <div class="cat-checkboxes" id="addCategories">
+            <label class="cat-checkbox" data-cat="organik">
+              <input type="checkbox" value="organik" aria-label="Filter Organik"><span>Organik</span>
+            </label>
+            <label class="cat-checkbox" data-cat="anorganik">
+              <input type="checkbox" value="anorganik" aria-label="Filter Anorganik"><span>Anorganik</span>
+            </label>
+            <label class="cat-checkbox" data-cat="b3">
+              <input type="checkbox" value="b3" aria-label="Filter B3"><span>B3</span>
+            </label>
+            <label class="cat-checkbox" data-cat="campur">
+              <input type="checkbox" value="campur" aria-label="Filter Campur"><span>Campur</span>
+            </label>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Status Saat Ini</label>
+          <select id="addStatus">
+            <option value="terurus">🟢 Masih Terurus</option>
+            <option value="tidak_terurus">🔴 Tidak Terurus</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Deskripsi / Keterangan</label>
+          <textarea id="addDescription" placeholder="Misal: Dekat pintu masuk, mudah dijangkau..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Lokasi di Peta *</label>
+          <div class="coord-picker">
+            <div id="coordMap"></div>
+            <div class="coord-display">
+              <input class="coord-input" id="addLat" type="number" step="0.000001" placeholder="Lat" aria-label="Latitude" readonly>
+              <input class="coord-input" id="addLng" type="number" step="0.000001" placeholder="Lng" aria-label="Longitude" readonly>
+              <button type="button" class="btn-secondary" style="width:auto;padding:0.3rem 0.6rem;font-size:0.75rem;" onclick="useMyLocation()">📍 GPS Saya</button>
+            </div>
+            <p class="hint" style="margin-top: 0.3rem;">Klik peta atau drag marker untuk pilih lokasi. Klik "GPS Saya" untuk otomatis.</p>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Foto (opsional)</label>
+          <label class="photo-upload" id="addPhotoUpload">
+            <input type="file" accept="image/*" onchange="handleAddPhoto(this)" aria-label="Upload foto tempat sampah">
+            <div class="placeholder" id="addPhotoPlaceholder">
+              <span class="icon">📷</span>
+              <div>Klik untuk upload foto</div>
+              <small>Max 5MB, akan otomatis dikompres</small>
+            </div>
+            <img id="addPhotoPreview" class="hidden" alt="Preview">
+          </label>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeAddModal()">Batal</button>
+      <button class="btn-primary" style="width:auto;padding:0.5rem 1.2rem;" onclick="submitAddBin()">Kirim</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== MODAL: LAPOR KONDISI ====== -->
+<div class="modal-overlay" id="reportModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>⚠️ Lapor Kondisi Tempat Sampah</h2>
+      <button class="modal-close" onclick="closeReportModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="notice notice-warning">
+        Anda akan melapor untuk: <strong id="reportBinName">-</strong>
+      </div>
+      <div class="form-group">
+        <label>Kondisi *</label>
+        <select id="reportType">
+          <option value="">-- Pilih kondisi --</option>
+          <option value="penuh">Sudah penuh</option>
+          <option value="rusak">Rusak / bocor</option>
+          <option value="tidak_ada">Sudah tidak ada / dipindah</option>
+          <option value="tidak_terurus">Tidak terurus lagi</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Catatan Tambahan</label>
+        <textarea id="reportNotes" placeholder="Tambahkan informasi yang relevan..."></textarea>
+      </div>
+      <div class="form-group">
+        <label>Foto Kondisi (opsional)</label>
+        <label class="photo-upload" id="reportPhotoUpload">
+          <input type="file" accept="image/*" id="reportPhoto" onchange="handleReportPhoto(this)" aria-label="Upload foto kondisi">
+          <div class="placeholder" id="reportPhotoPlaceholder">
+            <span class="icon">📷</span>
+            <div>Klik untuk upload foto</div>
+          </div>
+          <img id="reportPhotoPreview" class="hidden" alt="Preview">
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-secondary" onclick="closeReportModal()">Batal</button>
+      <button class="btn-primary" style="width:auto;padding:0.5rem 1.2rem;" onclick="submitReport()">Kirim Laporan</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="js/data.js"></script>
+<script src="js/map.js"></script>
+<script src="js/forms.js"></script>
+<script>
+  // Initialize
+  document.addEventListener('DOMContentLoaded', () => {
+    initMap();
+
+    // Filter chip toggle (in sidebar)
+    document.querySelectorAll('#filterGroup .filter-chip input').forEach(input => {
+      input.addEventListener('change', () => {
+        const chip = input.closest('.filter-chip');
+        chip.classList.toggle('active', input.checked);
+        updateActiveCategories();
+      });
+    });
+
+    // Category checkbox in add form
+    document.querySelectorAll('#addCategories .cat-checkbox').forEach(cb => {
+      cb.addEventListener('click', e => {
+        e.preventDefault();
+        const input = cb.querySelector('input');
+        input.checked = !input.checked;
+        cb.classList.toggle('checked', input.checked);
+      });
+    });
+  });
+
+  function updateActiveCategories() {
+    const cats = Array.from(document.querySelectorAll('#filterGroup .filter-chip input:checked'))
+      .map(el => el.value);
+    setActiveCategories(cats);
+  }
+
+  // Mobile sidebar toggle
+  function openSidebar() {
+    document.getElementById('sidebar').classList.add('open');
+    document.getElementById('sidebarBackdrop').classList.add('open');
+  }
+  function closeSidebar() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebarBackdrop').classList.remove('open');
+  }
+  // Show mobile close button only on mobile
+  function adjustMobileUI() {
+    const closeBtn = document.getElementById('mobileCloseBtn');
+    if (closeBtn) {
+      closeBtn.style.display = window.innerWidth <= 768 ? 'block' : 'none';
+    }
+  }
+  window.addEventListener('resize', adjustMobileUI);
+  document.addEventListener('DOMContentLoaded', adjustMobileUI);
+
+  // Auto-close sidebar after clicking a filter on mobile
+  document.querySelectorAll('#filterGroup .filter-chip input').forEach(input => {
+    input.addEventListener('change', () => {
+      if (window.innerWidth <= 768) setTimeout(closeSidebar, 250);
+    });
+  });
+</script>
+
+</body>
+</html>

@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard - Peta Sampah UNTAD</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/png" href="assets/logo-untad.png">
+</head>
+<body class="admin-body">
+
+<!-- Login View -->
+<div id="loginView" class="login-card">
+  <img src="assets/logo-untad.png" alt="UNTAD" style="width: 80px; margin-bottom: 1rem;">
+  <h2>Admin Dashboard</h2>
+  <p>Peta Sampah UNTAD - Moderasi Submission</p>
+  <input type="password" id="adminPassword" placeholder="Masukkan password admin" onkeypress="if(event.key==='Enter') handleLogin()">
+  <button onclick="handleLogin()">Masuk</button>
+  <p id="loginError" class="hidden" style="color: var(--danger); margin-top: 0.5rem; font-size: 0.85rem;"></p>
+  <p style="margin-top: 1.5rem; font-size: 0.75rem; color: var(--text-muted);">
+    <a href="index.html" style="color: var(--accent);">← Kembali ke peta publik</a>
+  </p>
+</div>
+
+<!-- Dashboard View -->
+<div id="dashboardView" class="admin-dashboard hidden">
+  <div class="admin-header">
+    <div style="display: flex; align-items: center; gap: 1rem;">
+      <img src="assets/logo-untad.png" alt="UNTAD" style="width: 50px;">
+      <div>
+        <h1>Dashboard Admin</h1>
+        <p class="text-muted text-small">Peta Sampah UNTAD - Moderasi & Statistik</p>
+      </div>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+      <a href="index.html" class="btn-header" style="color: var(--accent); border-color: var(--accent); background: #fff;">🗺️ Buka Peta</a>
+      <button class="logout-btn" onclick="logout()">Keluar</button>
+    </div>
+  </div>
+
+  <!-- Stats Grid -->
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="label">Total Bin Aktif</div>
+      <div class="value" id="statTotalBins">0</div>
+      <div class="sub">Terdata di peta publik</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">🟢 Bin Terurus</div>
+      <div class="value" id="statBinsHijau">0</div>
+      <div class="sub">Status masih baik</div>
+    </div>
+    <div class="stat-card danger">
+      <div class="label">🔴 Bin Tidak Terurus</div>
+      <div class="value" id="statBinsMerah">0</div>
+      <div class="sub">Perlu tindak lanjut</div>
+    </div>
+    <div class="stat-card warning">
+      <div class="label">Total Laporan Masuk</div>
+      <div class="value" id="statTotalReports">0</div>
+      <div class="sub">Semua laporan kondisi</div>
+    </div>
+  </div>
+
+  <!-- Pending Section -->
+  <div class="pending-section">
+    <h2>📋 Submission Tertunda (<span id="pendingCount">0</span>)</h2>
+    <p class="text-muted text-small" style="margin-bottom: 1rem;">Tinjau dan setujui/tolak submission yang masuk dari pengguna.</p>
+    <div id="pendingList"></div>
+  </div>
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/admin.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', checkLogin);
+</script>
+
+</body>
+</html>

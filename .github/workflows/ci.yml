@@ -1,0 +1,125 @@
+name: CI - Test & Build Peta Sampah UNTAD
+
+on:
+  push:
+    branches: [ main, master, develop ]
+  pull_request:
+    branches: [ main, master, develop ]
+  workflow_dispatch:
+
+jobs:
+  lint-test-build:
+    name: Validate, Test & Build Static Web App
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Locate Project Root
+        id: locate
+        run: |
+          if [ -f "index.html" ]; then
+            echo "root=." >> $GITHUB_OUTPUT
+          elif [ -f "Peta Sampah/index.html" ]; then
+            echo "root=Peta Sampah" >> $GITHUB_OUTPUT
+          else
+            echo "::error::index.html tidak ditemukan di root maupun folder 'Peta Sampah'!"
+            exit 1
+          fi
+
+      - name: Verify Required Files & Assets
+        run: |
+          ROOT="${{ steps.locate.outputs.root }}"
+          echo "Memeriksa struktur file di: $ROOT"
+          REQUIRED_FILES=(
+            "index.html"
+            "admin.html"
+            "robots.txt"
+            "css/style.css"
+            "js/data.js"
+            "js/map.js"
+            "js/forms.js"
+            "js/admin.js"
+            "assets/logo-untad.png"
+          )
+          for file in "${REQUIRED_FILES[@]}"; do
+            if [ ! -f "$ROOT/$file" ]; then
+              echo "::error::File wajib hilang: $ROOT/$file"
+              exit 1
+            fi
+          done
+          echo "Semua file dan aset wajib lengkap."
+
+      - name: JavaScript Syntax Check
+        run: |
+          ROOT="${{ steps.locate.outputs.root }}"
+          for jsfile in "$ROOT"/js/*.js; do
+            echo "Checking syntax: $jsfile"
+            node --check "$jsfile"
+          done
+
+      - name: HTML & CSS Validation
+        run: |
+          ROOT="${{ steps.locate.outputs.root }}"
+          npx --yes htmlhint "$ROOT/index.html" "$ROOT/admin.html"
+          npx --yes stylelint "$ROOT/css/style.css" --allow-empty-input || true
+
+      - name: Functional & Integration Test (HTTP Server + Smoke Test)
+        run: |
+          ROOT="${{ steps.locate.outputs.root }}"
+          python3 -m http.server 8000 --directory "$ROOT" &
+          SERVER_PID=$!
+          sleep 2
+
+          # Pastikan halaman utama, admin, CSS, dan JS merespons HTTP 200
+          for path in "/" "/index.html" "/admin.html" "/css/style.css" "/js/data.js" "/js/map.js" "/js/forms.js" "/js/admin.js" "/assets/logo-untad.png"; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8000$path")
+            echo "GET $path -> HTTP $STATUS"
+            if [ "$STATUS" != "200" ]; then
+              echo "::error::Gagal memuat $path (HTTP $STATUS)"
+              kill $SERVER_PID
+              exit 1
+            fi
+          done
+
+          # Cek referensi elemen penting di HTML
+          curl -s "http://localhost:8000/index.html" | grep -q "Peta Sampah UNTAD"
+          curl -s "http://localhost:8000/admin.html" | grep -q "adminPassword"
+
+          kill $SERVER_PID
+          echo "Semua smoke test HTTP & konten berhasil!"
+
+      - name: Build Production Bundle (Minify & Package)
+        run: |
+          ROOT="${{ steps.locate.outputs.root }}"
+          mkdir -p dist/css dist/js dist/assets
+
+          # Salin file statis dan aset
+          cp "$ROOT/index.html" dist/
+          cp "$ROOT/admin.html" dist/
+          cp "$ROOT/robots.txt" dist/
+          cp -r "$ROOT/assets/." dist/assets/
+
+          # Minify CSS & JS untuk produksi
+          npx --yes clean-css-cli -o dist/css/style.css "$ROOT/css/style.css"
+
+          for jsfile in "$ROOT"/js/*.js; do
+            filename=$(basename "$jsfile")
+            npx --yes terser "$jsfile" -o "dist/js/$filename" --compress --mangle
+          done
+
+          echo "Hasil build di folder dist/:"
+          ls -la dist/ dist/css/ dist/js/ dist/assets/
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: peta-sampah-untad-build
+          path: dist/
+          retention-days: 7
